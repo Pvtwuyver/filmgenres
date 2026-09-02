@@ -1,0 +1,43 @@
+name: Update film posters
+
+on:
+  schedule:
+    - cron: "0 4 * * 1"   # elke maandag 04:00 UTC (06:00 zomertijd NL) — de filmlijst verandert zelden
+  workflow_dispatch: {}    # zet de "Run workflow"-knop aan voor handmatig draaien
+
+# Nodig zodra de workflow zelf bestanden (data/posters.json) terug moet
+# committen. Zie ook Settings → Actions → General → "Workflow permissions".
+permissions:
+  contents: write
+
+jobs:
+  fetch-posters:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Fetch posters
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+        run: python scripts/fetch_posters.py
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/posters.json
+          if git diff --cached --quiet; then
+            echo "Geen wijzigingen in data/posters.json — niets te committen."
+          else
+            git commit -m "Ververs filmposters"
+            git push
+          fi
